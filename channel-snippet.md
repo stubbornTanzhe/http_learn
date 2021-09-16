@@ -1,6 +1,7 @@
 ### 1
 io.Copy是阻塞的
-
+  
+  
 ### 2 pipeline样例
 关了channel也是能读出来的
 ```Go 
@@ -60,6 +61,7 @@ func main() {
 	printer(squares)
 }
 ```
+  
 
 ### 利用channel的阻塞读，以及关闭策略
 这里range filenames，这种方式挺好
@@ -181,6 +183,8 @@ func crawl(url string) []string {
 }
 ```
 
+
+   
 ###只打印偶数
 很妙很秒，认真体会。这种用法是隔一个搞一个
 ch这个channel的buffer大小是1，所以会交替的为空或为满，所以只有一个case可以进行下去，无论i是奇数或者偶数，它都会打印0 2 4 6 8。
@@ -196,6 +200,7 @@ for i := 0; i < 10; i++ {
 }
 ```
 
+  
 
 ###一个经典的用go routine换共享变量的例子
 ```go 
@@ -223,4 +228,36 @@ func init() {
 	go teller() // start the monitor goroutine
 }
 
+```
+
+
+
+  
+### map的key放chan，直接range map replace map key
+```go
+var (
+	entering = make(chan client)
+	leaving  = make(chan client)
+	messages = make(chan string) // all incoming client messages
+)
+
+func broadcaster() {
+	clients := make(map[client]bool) // all connected clients
+	for {
+		select {
+		case msg := <-messages:
+			// Broadcast incoming message to all
+			// clients' outgoing message channels.
+			for cli := range clients {
+				cli <- msg
+			}
+		case cli := <-entering:
+			clients[cli] = true
+
+		case cli := <-leaving:
+			delete(clients, cli)
+			close(cli)
+		}
+	}
+}
 ```
