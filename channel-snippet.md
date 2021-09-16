@@ -2,7 +2,8 @@
 io.Copy是阻塞的
 
 ### 2 pipeline样例
-```Go
+关了channel也是能读出来的
+```Go 
 func main() {
 	naturals := make(chan int)
 	squares := make(chan int)
@@ -60,7 +61,7 @@ func main() {
 }
 ```
 
-### 利用channel的阻塞读
+### 利用channel的阻塞读，以及关闭策略
 这里range filenames，这种方式挺好
 ```go
 // makeThumbnails4 makes thumbnails for the specified files in parallel.
@@ -160,3 +161,66 @@ func makeThumbnails6(filenames <-chan string) int64 {
 sizes channel携带了每一个文件的大小到main goroutine，在main goroutine中使用了range loop来计算总和。观察一下我们是怎样创建一个closer goroutine，并让其在所有worker goroutine们结束之后再关闭sizes channel的。两步操作：wait和close，必须是基于sizes的循环的并发。
 
 **考虑一下另一种方案：如果等待操作被放在了main goroutine中，在循环之前，这样的话就永远都不会结束了，如果在循环之后，那么又变成了不可达的部分，因为没有任何东西去关闭这个channel，这个循环就永远都不会终止。**
+
+### 基于channel buffer来做MQ
+加了buffer，这样处理的时候有内容才能处理
+```go
+// tokens is a counting semaphore used to
+// enforce a limit of 20 concurrent requests.
+var tokens = make(chan struct{}, 20)
+
+func crawl(url string) []string {
+	fmt.Println(url)
+	tokens <- struct{}{} // acquire a token
+	list, err := links.Extract(url)
+	<-tokens // release the token
+	if err != nil {
+		log.Print(err)
+	}
+	return list
+}
+```
+
+###只打印偶数
+很妙很秒，认真体会。这种用法是隔一个搞一个
+ch这个channel的buffer大小是1，所以会交替的为空或为满，所以只有一个case可以进行下去，无论i是奇数或者偶数，它都会打印0 2 4 6 8。
+但如果是再加buffer就不确定了
+```go
+ch := make(chan int, 1)
+for i := 0; i < 10; i++ {
+	select {
+	case x := <-ch:
+		fmt.Println(x) // "0" "2" "4" "6" "8"
+	case ch <- i:
+	}
+}
+```
+
+
+###一个经典的用go routine换共享变量的例子
+```go 
+// Package bank provides a concurrency-safe bank with one account.
+package bank
+
+var deposits = make(chan int) // send amount to deposit
+var balances = make(chan int) // receive balance
+
+func Deposit(amount int) { deposits <- amount }
+func Balance() int       { return <-balances }
+
+func teller() {
+	var balance int // balance is confined to teller goroutine
+	for {
+		select {
+		case amount := <-deposits:
+			balance += amount
+		case balances <- balance:
+		}
+	}
+}
+
+func init() {
+	go teller() // start the monitor goroutine
+}
+
+```
