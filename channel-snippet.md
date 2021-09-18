@@ -283,3 +283,68 @@ func Balance() int {
 	return b
 }
 ```
+
+### 同步
+对于cpu和编译器来说，可能会打乱代码执行顺序  
+比如一个map，为啥读的时候要加rlock，是因为rwlock完数据不一定真正刷到内存  
+只有rlock会强制刷一把，让read操作得到正确的值  
+
+
+### chan close的时候可以让另一个阻塞着的goroutine读取chan的值
+```go
+func main() {
+	go func() {
+		Fun1()
+	}()
+	<-ready
+}
+var ready = make(chan struct{})
+func Fun1() {
+	time.Sleep(time.Second*10)
+	close(ready)
+}
+
+```
+
+
+### 有锁转无锁的一种方式
+```go
+type entry struct {
+	res   result
+	ready chan struct{} // closed when res is ready
+}
+
+func New(f Func) *Memo {
+	return &Memo{f: f, cache: make(map[string]*entry)}
+}
+
+type Memo struct {
+	f     Func
+	mu    sync.Mutex // guards cache
+	cache map[string]*entry
+}
+
+func (memo *Memo) Get(key string) (value interface{}, err error) {
+	memo.mu.Lock()
+	e := memo.cache[key]
+	if e == nil {
+		// This is the first request for this key.
+		// This goroutine becomes responsible for computing
+		// the value and broadcasting the ready condition.
+		e = &entry{ready: make(chan struct{})}
+		memo.cache[key] = e
+		memo.mu.Unlock()
+
+		e.res.value, e.res.err = memo.f(key)
+
+		close(e.ready) // broadcast ready condition
+	} else {
+		// This is a repeat request for this key.
+		memo.mu.Unlock()
+
+		<-e.ready // wait for ready condition
+	}
+	return e.res.value, e.res.err
+}
+ready用来进行通知所有等待的人==>这不就是singleflight;)
+```
