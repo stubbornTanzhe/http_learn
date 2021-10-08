@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func healthz(w http.ResponseWriter, req *http.Request) {
@@ -53,7 +54,7 @@ func middlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		recorder := &StatusRecorder{
 			ResponseWriter: w,
-			Status:         200,
+			Status:         400,
 		}
 		defer func() {
 			glog.Infof(fmt.Sprintf("status:%+v", recorder.GetStatus()))
@@ -63,9 +64,8 @@ func middlewareHandler(next http.Handler) http.Handler {
 		glog.Info(r.Header)
 		//接收客户端 request，并将 request 中带的 header 写入 response header
 		for i, v := range r.Header {
-			for _, t := range v {
-				recorder.Header().Set(i, t)
-			}
+			headVal := strings.Join(v, ";")
+			recorder.Header().Set(i, headVal)
 		}
 
 		//读取当前系统的环境变量中的 VERSION 配置，并写入 response header
