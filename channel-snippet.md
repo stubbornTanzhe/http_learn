@@ -227,7 +227,6 @@ func teller() {
 func init() {
 	go teller() // start the monitor goroutine
 }
-
 ```
 
 
@@ -346,5 +345,5 @@ func (memo *Memo) Get(key string) (value interface{}, err error) {
 	}
 	return e.res.value, e.res.err
 }
-ready用来进行通知所有等待的人==>这不就是singleflight;)
+ready用来进行通知所有等待的人==>这不就是singleflight;)不过singleflight是锁。两步锁 跟PL的9.7章节类似
 ```
