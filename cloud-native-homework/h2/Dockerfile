@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ### Build Stage ###
 # Choose a good base image for building: buster.
 # The HTTP server uses SQLite which is an embedded C library, and buster has gcc compiler installed.
@@ -8,7 +10,7 @@ WORKDIR /app
 ADD . /app
 
 # Resolve dependencies.
-RUN go mod init && go mod tidy
+RUN go mod init cncamp_http_server && go mod tidy
 
 # Compile to binary, target Linux so that Docker can run it everywhere.
 RUN GOOS=linux go build -o /app/cncamp_http_server
