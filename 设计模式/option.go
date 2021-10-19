@@ -1,5 +1,10 @@
 package main
 
+import (
+	"time"
+	"net/http"
+	"strings"
+)
 
 // 针对可选的HTTP请求配置项，模仿gRPC使用的Options设计模式实现
 type requestOption struct {
